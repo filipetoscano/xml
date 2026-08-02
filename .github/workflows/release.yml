@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+    - '*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup .NET SDK 10.0
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache
+        uses: actions/cache@v5
+        with:
+          path:
+            .nuget
+          key: nuget
+
+      - name: Run release.sh
+        run: ./cicd/release.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUGET_APIKEY: ${{ secrets.NUGET_APIKEY }}

@@ -1,0 +1,19 @@
+# Root ignores
+/.nuget/
+/data/
+/nupkg/
+
+# Specific
+/src/Lefty.Xml/*.cmd
+/src/Lefty.Xml/*.html
+/src/Lefty.Xml/*.json
+
+# Global ignores
+bin/
+obj/
+.vs/
+*.csproj.user
+*.pubxml.user
+*.sqlproj.user
+
+# eof
