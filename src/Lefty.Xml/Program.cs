@@ -60,7 +60,7 @@ public class Program
         {
             return app.Execute( args );
         }
-        catch ( UnrecognizedCommandParsingException ex )
+        catch ( CommandParsingException ex )
         {
             AnsiConsole.MarkupLineInterpolated( $"[red]err[/]: {ex.Message}" );
 

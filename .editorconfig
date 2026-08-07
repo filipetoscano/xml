@@ -214,4 +214,13 @@ indent_style = space
 tab_width = 4
 trim_trailing_whitespace = true
 
+# XML files
+[*.{xml,xsd,xsl,xslt,config,csproj,props,targets,slnx}]
+indent_size = 2
+indent_style = space
+tab_width = 2
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
 # eof
