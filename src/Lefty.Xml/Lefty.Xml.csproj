@@ -8,7 +8,7 @@
 
     <!-- Tool -->
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>lemail</ToolCommandName>
+    <ToolCommandName>lxml</ToolCommandName>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
