@@ -1,11 +1,9 @@
-﻿using Lefty.Xml;
-using McMaster.Extensions.CommandLineUtils;
+﻿using McMaster.Extensions.CommandLineUtils;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Spectre.Console;
 using System.Reflection;
 
-namespace Lefty.Email;
+namespace Lefty.Xml;
 
 /// <summary />
 [Command( "lxml", Description = "XML tool" )]
@@ -22,8 +20,6 @@ public class Program
          */
         var svc = new ServiceCollection();
 
-        svc.AddOptions();
-
         var sp = svc.BuildServiceProvider();
 
 
@@ -37,12 +33,6 @@ public class Program
             app.Conventions
                 .UseDefaultConventions()
                 .UseConstructorInjection( sp );
-        }
-        catch ( TargetInvocationException ex )
-            when ( ex.InnerException?.GetType() == typeof( OptionsValidationException ) )
-        {
-            AnsiConsole.MarkupLineInterpolated( $"[red]err[/]: {ex.InnerException.Message}" );
-            return 2;
         }
         catch ( Exception ex )
         {
