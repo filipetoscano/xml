@@ -5,12 +5,12 @@ on:
     tags:
     - 'v*.*.*'
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # gh release create
+      id-token: write   # OIDC token for nuget.org trusted publishing
     steps:
       - uses: actions/checkout@v6
 
@@ -26,8 +26,20 @@ jobs:
             .nuget
           key: nuget
 
-      - name: Run release.sh
-        run: ./cicd/release.sh
+      - name: Build and pack
+        run: ./cicd/release.sh build
+
+      # Exchanges the workflow's OIDC token for a short-lived nuget.org API key.
+      # Requested only after the build, so that no build step can see it, and
+      # just before the push, since it expires after an hour.
+      - name: NuGet login
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Publish
+        run: ./cicd/release.sh publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NUGET_APIKEY: ${{ secrets.NUGET_APIKEY }}
+          NUGET_APIKEY: ${{ steps.login.outputs.NUGET_API_KEY }}
