@@ -6,6 +6,7 @@
     <File Path="cicd/release.sh" />
   </Folder>
   <Folder Name="/sln/">
+    <File Path=".editorconfig" />
     <File Path=".gitignore" />
     <File Path="Directory.Build.props" />
     <File Path="README.md" />
