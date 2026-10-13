@@ -125,6 +125,28 @@ public sealed class ValidateCommandTests : IDisposable
 
     /// <summary />
     [Fact]
+    public async Task Succeeds_when_patterns_overlap()
+    {
+        string file = _dir.Write( "a.xml", "<a />" );
+
+        Assert.Equal( 0, await Run( [ _dir.Root, file, Path.Combine( _dir.Root, "*.xml" ) ] ) );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task Fails_on_unreadable_file()
+    {
+        string locked = _dir.Write( "locked.xml", "<a />" );
+        string good = _dir.Write( "good.xml", "<a />" );
+
+        using ( new FileStream( locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None ) )
+            Assert.Equal( 1, await Run( [ locked, good ] ) );
+    }
+
+
+    /// <summary />
+    [Fact]
     public async Task Validates_every_xml_file_beneath_a_directory()
     {
         _dir.Write( "docs/a.xml", Located.Replace( "count.xsd", "../count.xsd" ) + "1</count>" );

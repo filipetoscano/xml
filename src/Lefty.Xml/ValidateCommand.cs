@@ -64,7 +64,23 @@ public class ValidateCommand
         {
             string name = Path.GetRelativePath( Directory.GetCurrentDirectory(), file );
 
-            byte[] source = await File.ReadAllBytesAsync( file );
+            /*
+             * A file which cannot be read fails on its own, rather than aborting the
+             * run and leaving the remaining files unchecked.
+             */
+            byte[] source;
+
+            try
+            {
+                source = await File.ReadAllBytesAsync( file );
+            }
+            catch ( Exception ex ) when ( ex is IOException || ex is UnauthorizedAccessException )
+            {
+                AnsiConsole.MarkupLineInterpolated( $"[red]err[/]: {name} - cannot read: {ex.Message}" );
+                failed++;
+                continue;
+            }
+
             ValidationResult result = XmlValidator.Validate( source, file, schemas );
 
             switch ( result.Status )

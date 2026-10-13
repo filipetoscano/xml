@@ -25,7 +25,7 @@ internal sealed class TempDirectory : IDisposable
     /// </summary>
     public string Write( string relativePath, string content )
     {
-        string path = Path.Combine( Root, relativePath );
+        string path = Path.GetFullPath( Path.Combine( Root, relativePath ) );
 
         Directory.CreateDirectory( Path.GetDirectoryName( path )! );
         File.WriteAllText( path, content, new UTF8Encoding( false ) );
@@ -39,9 +39,15 @@ internal sealed class TempDirectory : IDisposable
     {
         try
         {
+            /*
+             * Tests may leave read-only files behind, which Windows refuses to delete.
+             */
+            foreach ( string file in Directory.EnumerateFiles( Root, "*", SearchOption.AllDirectories ) )
+                File.SetAttributes( file, FileAttributes.Normal );
+
             Directory.Delete( Root, true );
         }
-        catch ( IOException )
+        catch ( Exception ex ) when ( ex is IOException || ex is UnauthorizedAccessException )
         {
         }
     }

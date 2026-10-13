@@ -57,7 +57,23 @@ public class FormatCommand
                 continue;
             }
 
-            byte[] source = await File.ReadAllBytesAsync( file );
+            /*
+             * A file which cannot be read or written fails on its own, rather than
+             * aborting the run and leaving the remaining files untouched.
+             */
+            byte[] source;
+
+            try
+            {
+                source = await File.ReadAllBytesAsync( file );
+            }
+            catch ( Exception ex ) when ( ex is IOException || ex is UnauthorizedAccessException )
+            {
+                AnsiConsole.MarkupLineInterpolated( $"[red]err[/]: {name} - cannot read: {ex.Message}" );
+                failed++;
+                continue;
+            }
+
             byte[] formatted;
 
             try
@@ -74,17 +90,26 @@ public class FormatCommand
             if ( source.AsSpan().SequenceEqual( formatted ) == true )
                 continue;
 
-            changed++;
-
             if ( Check == true )
             {
                 AnsiConsole.MarkupLineInterpolated( $"[yellow]chg[/]: {name}" );
+                changed++;
+                continue;
             }
-            else
+
+            try
             {
                 await File.WriteAllBytesAsync( file, formatted );
-                AnsiConsole.MarkupLineInterpolated( $"[green]fmt[/]: {name}" );
             }
+            catch ( Exception ex ) when ( ex is IOException || ex is UnauthorizedAccessException )
+            {
+                AnsiConsole.MarkupLineInterpolated( $"[red]err[/]: {name} - cannot write: {ex.Message}" );
+                failed++;
+                continue;
+            }
+
+            AnsiConsole.MarkupLineInterpolated( $"[green]fmt[/]: {name}" );
+            changed++;
         }
 
 

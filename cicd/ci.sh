@@ -27,5 +27,6 @@ cd ..
 dotnet clean   -c Release
 dotnet restore --packages .nuget
 dotnet build   -c Release --no-restore
+dotnet test    -c Release --no-build
 
 # eof

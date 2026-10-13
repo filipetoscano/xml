@@ -15,6 +15,8 @@ public static class FileGlob
     /// <summary>
     /// Expands the patterns, returning the distinct set of matching files, sorted.
     /// Patterns which matched no file at all are reported through <paramref name="unmatched" />.
+    /// A pattern whose files were all matched by an earlier pattern still counts as
+    /// matched.
     /// </summary>
     public static IReadOnlyList<string> Resolve( IEnumerable<string> patterns, out IReadOnlyList<string> unmatched )
     {
@@ -23,11 +25,7 @@ public static class FileGlob
 
         foreach ( string pattern in patterns )
         {
-            int before = files.Count;
-
-            ResolveOne( pattern, files );
-
-            if ( files.Count == before )
+            if ( ResolveOne( pattern, files ) == false )
                 missed.Add( pattern );
         }
 
@@ -36,8 +34,11 @@ public static class FileGlob
     }
 
 
-    /// <summary />
-    private static void ResolveOne( string pattern, SortedSet<string> files )
+    /// <summary>
+    /// Adds the files matching <paramref name="pattern" /> to <paramref name="files" />,
+    /// returning whether there were any.
+    /// </summary>
+    private static bool ResolveOne( string pattern, SortedSet<string> files )
     {
         /*
          * A pattern without wildcards is a plain path: either a file, or a
@@ -48,16 +49,13 @@ public static class FileGlob
             if ( File.Exists( pattern ) )
             {
                 files.Add( Path.GetFullPath( pattern ) );
-                return;
+                return true;
             }
 
             if ( Directory.Exists( pattern ) )
-            {
-                Match( pattern, "**/*.xml", files );
-                return;
-            }
+                return Match( pattern, "**/*.xml", files );
 
-            return;
+            return false;
         }
 
 
@@ -78,14 +76,14 @@ public static class FileGlob
             directory = "/";
 
         if ( Directory.Exists( directory ) == false )
-            return;
+            return false;
 
-        Match( directory, glob, files );
+        return Match( directory, glob, files );
     }
 
 
     /// <summary />
-    private static void Match( string directory, string glob, SortedSet<string> files )
+    private static bool Match( string directory, string glob, SortedSet<string> files )
     {
         var matcher = new Matcher( StringComparison.OrdinalIgnoreCase );
         matcher.AddInclude( glob );
@@ -94,5 +92,7 @@ public static class FileGlob
 
         foreach ( FilePatternMatch match in result.Files )
             files.Add( Path.GetFullPath( Path.Combine( directory, match.Path ) ) );
+
+        return result.HasMatches;
     }
 }

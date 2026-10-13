@@ -50,7 +50,7 @@ dotnet build   -c Release --no-restore -p:Version=${VERSION}
 mkdir -p nupkg
 rm -f nupkg/*.*
 
-dotnet pack    -c Release --no-restore --no-build src/Lefty.Email         -o nupkg -p:Version=${VERSION}
+dotnet pack    -c Release --no-restore --no-build src/Lefty.Xml           -o nupkg -p:Version=${VERSION}
 
 dotnet nuget push "nupkg/*.nupkg" --api-key ${NUGET_APIKEY} --source=https://api.nuget.org/v3/index.json
 

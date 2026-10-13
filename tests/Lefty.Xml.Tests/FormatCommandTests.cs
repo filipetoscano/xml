@@ -188,6 +188,66 @@ public sealed class FormatCommandTests : IDisposable
 
 
     /// <summary />
+    [Fact]
+    public async Task Succeeds_when_patterns_overlap()
+    {
+        string file = _dir.Write( "a.xml", Unformatted );
+
+        int exit = await Run( _dir.Root, file, Path.Combine( _dir.Root, "*.xml" ) );
+
+        Assert.Equal( 0, exit );
+        Assert.Equal( Formatted, File.ReadAllText( file ) );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task Fails_on_unreadable_file_but_formats_the_others()
+    {
+        string locked = _dir.Write( "locked.xml", Unformatted );
+        string good = _dir.Write( "good.xml", Unformatted );
+
+        int exit;
+
+        using ( new FileStream( locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None ) )
+            exit = await Run( locked, good );
+
+        Assert.Equal( 1, exit );
+        Assert.Equal( Unformatted, File.ReadAllText( locked ) );
+        Assert.Equal( Formatted, File.ReadAllText( good ) );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task Fails_on_read_only_file_but_formats_the_others()
+    {
+        string readOnly = _dir.Write( "readonly.xml", Unformatted );
+        string good = _dir.Write( "good.xml", Unformatted );
+        File.SetAttributes( readOnly, FileAttributes.ReadOnly );
+
+        int exit = await Run( readOnly, good );
+
+        Assert.Equal( 1, exit );
+        Assert.Equal( Unformatted, File.ReadAllText( readOnly ) );
+        Assert.Equal( Formatted, File.ReadAllText( good ) );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task Check_does_not_fail_on_read_only_file_which_is_formatted()
+    {
+        string readOnly = _dir.Write( "readonly.xml", Formatted );
+        File.SetAttributes( readOnly, FileAttributes.ReadOnly );
+
+        int exit = await Run( readOnly, check: true );
+
+        Assert.Equal( 0, exit );
+    }
+
+
+    /// <summary />
     private static Task<int> Run( params string[] patterns )
     {
         return Run( patterns, false );
