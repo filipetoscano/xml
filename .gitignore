@@ -5,8 +5,8 @@
 
 # Specific
 /src/Lefty.Xml/*.cmd
-/src/Lefty.Xml/*.html
-/src/Lefty.Xml/*.json
+/src/Lefty.Xml/*.xml
+/src/Lefty.Xml/*.xsd
 
 # Global ignores
 bin/

@@ -8,6 +8,7 @@ namespace Lefty.Xml;
 /// <summary />
 [Command( "lxml", Description = "XML tool" )]
 [Subcommand( typeof( FormatCommand ) )]
+[Subcommand( typeof( InfoCommand ) )]
 [Subcommand( typeof( ValidateCommand ) )]
 [VersionOptionFromMember( MemberName = nameof( GetVersion ) )]
 public class Program
