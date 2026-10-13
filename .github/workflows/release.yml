@@ -8,9 +8,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: release
     permissions:
       contents: write   # gh release create
       id-token: write   # OIDC token for nuget.org trusted publishing
+
     steps:
       - uses: actions/checkout@v6
 
