@@ -195,11 +195,15 @@ public static class XmlFormatter
                 break;
 
             case XmlNodeType.DocumentType:
+                /*
+                 * The reader reports a missing internal subset as an empty string, for
+                 * which the writer would emit an empty "[]".
+                 */
                 writer.WriteDocType(
                     reader.Name,
                     reader.GetAttribute( "PUBLIC" ),
                     reader.GetAttribute( "SYSTEM" ),
-                    reader.Value );
+                    string.IsNullOrEmpty( reader.Value ) == true ? null : reader.Value );
                 break;
 
             case XmlNodeType.Element:

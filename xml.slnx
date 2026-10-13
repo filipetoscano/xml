@@ -13,4 +13,7 @@
   <Folder Name="/src/">
     <Project Path="src/Lefty.Xml/Lefty.Xml.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Lefty.Xml.Tests/Lefty.Xml.Tests.csproj" Id="49ee17ff-e3bc-433d-b0ab-0b84a0ca3676" />
+  </Folder>
 </Solution>
