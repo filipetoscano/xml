@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Lefty.Xml.Tests;
 
 /// <summary>
@@ -158,13 +160,105 @@ public sealed class ValidateCommandTests : IDisposable
 
 
     /// <summary />
-    private static Task<int> Run( string[] patterns, string? schema = null, bool emitErrors = false )
+    [Fact]
+    public async Task Json_output_reports_every_file()
     {
-        var command = new ValidateCommand()
+        string valid = _dir.Write( "a.xml", "<count>1</count>" );
+        string invalid = _dir.Write( "b.xml", "<count>many</count>" );
+        string locked = _dir.Write( "c.xml", "<count>1</count>" );
+        var console = new CapturedConsole();
+
+        int exit;
+
+        using ( new FileStream( locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None ) )
+            exit = await Run( [ valid, invalid, locked ], _schema, console: console, output: "json" );
+
+        Assert.Equal( 1, exit );
+
+        using JsonDocument json = JsonDocument.Parse( console.Text );
+        JsonElement[] files = [ .. json.RootElement.EnumerateArray() ];
+
+        Assert.Equal( 3, files.Length );
+
+        Assert.EndsWith( "a.xml", files[ 0 ].GetProperty( "file" ).GetString() );
+        Assert.Equal( "valid", files[ 0 ].GetProperty( "status" ).GetString() );
+        Assert.Equal( 0, files[ 0 ].GetProperty( "errors" ).GetArrayLength() );
+
+        Assert.Equal( "invalid", files[ 1 ].GetProperty( "status" ).GetString() );
+        JsonElement error = Assert.Single( files[ 1 ].GetProperty( "errors" ).EnumerateArray() );
+        Assert.Equal( 1, error.GetProperty( "line" ).GetInt32() );
+        Assert.True( error.GetProperty( "column" ).GetInt32() > 0 );
+        Assert.Contains( "many", error.GetProperty( "message" ).GetString() );
+
+        Assert.Equal( "unreadable", files[ 2 ].GetProperty( "status" ).GetString() );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task Json_output_reports_not_well_formed_file()
+    {
+        string file = _dir.Write( "a.xml", "<a>" );
+        var console = new CapturedConsole();
+
+        await Run( [ file ], console: console, output: "json" );
+
+        using JsonDocument json = JsonDocument.Parse( console.Text );
+
+        Assert.Equal( "notWellFormed", json.RootElement[ 0 ].GetProperty( "status" ).GetString() );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task GitHub_output_annotates_each_error()
+    {
+        string schema = _dir.Write( "root.xsd", """
+            <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+              <xs:element name="root">
+                <xs:complexType>
+                  <xs:attribute name="a" type="xs:int" />
+                  <xs:attribute name="b" type="xs:int" />
+                </xs:complexType>
+              </xs:element>
+            </xs:schema>
+            """ );
+        string file = _dir.Write( "a.xml", "<root a=\"x\" b=\"y\" />" );
+        var console = new CapturedConsole();
+
+        int exit = await Run( [ file ], schema, console: console, output: "github" );
+
+        Assert.Equal( 1, exit );
+
+        string[] annotations = [ .. console.Lines.Where( line => line.StartsWith( "::error " ) ) ];
+
+        Assert.Equal( 2, annotations.Length );
+        Assert.All( annotations, annotation => Assert.Matches( @"^::error file=[^,]*a\.xml,line=1,col=\d+,title=lxml validate::", annotation ) );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task Text_output_has_no_annotations()
+    {
+        string file = _dir.Write( "a.xml", "<count>many</count>" );
+        var console = new CapturedConsole();
+
+        await Run( [ file ], _schema, console: console );
+
+        Assert.DoesNotContain( console.Lines, line => line.StartsWith( "::" ) );
+    }
+
+
+    /// <summary />
+    private static Task<int> Run( string[] patterns, string? schema = null, bool emitErrors = false, CapturedConsole? console = null, string output = "text" )
+    {
+        var command = new ValidateCommand( ( console ?? new CapturedConsole() ).Console )
         {
             Patterns = patterns,
             Schema = schema,
             EmitErrors = emitErrors,
+            Output = output,
         };
 
         return command.OnExecuteAsync();

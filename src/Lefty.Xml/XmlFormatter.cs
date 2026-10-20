@@ -337,6 +337,16 @@ public static class XmlFormatter
     }
 
 
+    /// <summary>
+    /// The encoding <see cref="Format" /> reads <paramref name="source" /> with, and
+    /// writes it back in unless the options name a charset.
+    /// </summary>
+    public static Encoding DetectEncoding( byte[] source )
+    {
+        return DetectEncoding( source, ReadDeclaration( source ).Encoding );
+    }
+
+
     /// <summary />
     private static Encoding DetectEncoding( byte[] source, string? declared )
     {

@@ -20,6 +20,7 @@ public class Program
          * 
          */
         var svc = new ServiceCollection();
+        svc.AddSingleton<IAnsiConsole>( AnsiConsole.Console );
 
         var sp = svc.BuildServiceProvider();
 

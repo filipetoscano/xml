@@ -45,3 +45,29 @@ Commands:
 
 Run 'lxml [command] -?|-h|--help' for more information about a command.
 ```
+
+
+Continuous integration
+--------------------------------------------------------------------------
+
+`lxml format --check` fails when any file is not formatted. Add `--diff` to
+see what formatting would change, as a unified diff which `git apply`
+accepts:
+
+```
+> lxml format --check --diff .
+```
+
+On GitHub Actions, `--output github` keeps the usual output and also writes
+each problem as an annotation, so it shows on the run summary and on the
+lines of a pull request:
+
+```yaml
+- run: dotnet tool restore
+- run: dotnet lxml format --check --diff --output github .
+- run: dotnet lxml validate --output github .
+```
+
+For scripts, `validate` and `info` can write their results as JSON with
+`--output json`. Standard output then holds only the JSON; patterns which
+match no file are reported on standard error.

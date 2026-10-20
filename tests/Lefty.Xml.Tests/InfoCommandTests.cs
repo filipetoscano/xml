@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Lefty.Xml.Tests;
 
 /// <summary>
@@ -67,11 +69,48 @@ public sealed class InfoCommandTests : IDisposable
 
 
     /// <summary />
+    [Fact]
+    public async Task Json_output_reports_facts_and_failures()
+    {
+        string good = _dir.Write( "a.xml", "<a xmlns=\"urn:a\">\n  <b />\n</a>\n" );
+        string bad = _dir.Write( "b.xml", "<a>" );
+        var console = new CapturedConsole();
+
+        int exit = await Run( [ good, bad ], console, "json" );
+
+        Assert.Equal( 1, exit );
+
+        using JsonDocument json = JsonDocument.Parse( console.Text );
+        JsonElement[] files = [ .. json.RootElement.EnumerateArray() ];
+
+        Assert.Equal( 2, files.Length );
+
+        JsonElement info = files[ 0 ].GetProperty( "info" );
+        Assert.False( files[ 0 ].TryGetProperty( "error", out _ ) );
+        Assert.Equal( "a", info.GetProperty( "root" ).GetProperty( "localName" ).GetString() );
+        Assert.Equal( "urn:a", info.GetProperty( "namespaces" )[ 0 ].GetProperty( "uri" ).GetString() );
+        Assert.Equal( "2 spaces", info.GetProperty( "indentation" ).GetString() );
+        Assert.True( info.GetProperty( "finalNewline" ).GetBoolean() );
+
+        Assert.False( files[ 1 ].TryGetProperty( "info", out _ ) );
+        Assert.StartsWith( "not well formed: ", files[ 1 ].GetProperty( "error" ).GetString() );
+    }
+
+
+    /// <summary />
     private static Task<int> Run( params string[] patterns )
     {
-        var command = new InfoCommand()
+        return Run( patterns, null, "text" );
+    }
+
+
+    /// <summary />
+    private static Task<int> Run( string[] patterns, CapturedConsole? console, string output )
+    {
+        var command = new InfoCommand( ( console ?? new CapturedConsole() ).Console )
         {
             Patterns = patterns,
+            Output = output,
         };
 
         return command.OnExecuteAsync();

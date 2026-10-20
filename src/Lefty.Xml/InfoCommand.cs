@@ -1,18 +1,49 @@
 using McMaster.Extensions.CommandLineUtils;
 using Spectre.Console;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using System.Xml;
+using AllowedValues = McMaster.Extensions.CommandLineUtils.AllowedValuesAttribute;
 
 namespace Lefty.Xml;
+
+/// <summary>
+/// Facts about one file, as written with --output json: either the facts, or why
+/// they could not be gathered.
+/// </summary>
+public sealed record InfoReport(
+    string File,
+    [property: JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingNull )] XmlInfo? Info,
+    [property: JsonIgnore( Condition = JsonIgnoreCondition.WhenWritingNull )] string? Error );
+
 
 /// <summary />
 [Command( "info", Description = "Shows encoding, declaration, namespaces, layout and other facts about XML files" )]
 public class InfoCommand
 {
+    private readonly IAnsiConsole _console;
+
+
     /// <summary />
     [Argument( 0, Description = "Input files" )]
     [Required]
     public string[] Patterns { get; set; } = default!;
+
+    /// <summary />
+    [Option( "-o|--output", CommandOptionType.SingleValue, Description = "Output format: text or json" )]
+    [AllowedValues( "text", "json", IgnoreCase = true )]
+    public string Output { get; set; } = "text";
+
+
+    /// <summary />
+    public InfoCommand( IAnsiConsole console )
+    {
+        _console = console;
+    }
+
+
+    /// <summary />
+    private bool Json => string.Equals( Output, "json", StringComparison.OrdinalIgnoreCase );
 
 
     /// <summary />
@@ -20,12 +51,22 @@ public class InfoCommand
     {
         IReadOnlyList<string> files = FileGlob.Resolve( Patterns, out IReadOnlyList<string> unmatched );
 
+        /*
+         * With JSON output these go to standard error, so that standard output stays
+         * valid JSON.
+         */
         foreach ( string pattern in unmatched )
-            AnsiConsole.MarkupLineInterpolated( $"[red]err[/]: no files matched '{pattern}'" );
+        {
+            if ( Json == true )
+                Console.Error.WriteLine( $"err: no files matched '{pattern}'" );
+            else
+                _console.MarkupLineInterpolated( $"[red]err[/]: no files matched '{pattern}'" );
+        }
 
         if ( files.Count == 0 )
             return 1;
 
+        var reports = new List<InfoReport>();
         int failed = 0;
 
         foreach ( string file in files )
@@ -40,19 +81,25 @@ public class InfoCommand
             }
             catch ( Exception ex ) when ( ex is IOException || ex is UnauthorizedAccessException )
             {
-                AnsiConsole.MarkupLineInterpolated( $"[red]err[/]: {name} - cannot read: {ex.Message}" );
+                Fail( reports, name, $"cannot read: {ex.Message}" );
                 failed++;
                 continue;
             }
             catch ( XmlException ex )
             {
-                AnsiConsole.MarkupLineInterpolated( $"[red]err[/]: {name} - not well formed: {ex.Message}" );
+                Fail( reports, name, $"not well formed: {ex.Message}" );
                 failed++;
                 continue;
             }
 
-            Print( name, info );
+            reports.Add( new InfoReport( name, info, null ) );
+
+            if ( Json == false )
+                Print( name, info );
         }
+
+        if ( Json == true )
+            _console.Profile.Out.Writer.WriteLine( JsonReport.Serialize( reports ) );
 
         if ( failed > 0 || unmatched.Count > 0 )
             return 1;
@@ -62,9 +109,19 @@ public class InfoCommand
 
 
     /// <summary />
-    private static void Print( string name, XmlInfo info )
+    private void Fail( List<InfoReport> reports, string name, string message )
     {
-        AnsiConsole.MarkupLineInterpolated( $"[bold]{name}[/]" );
+        reports.Add( new InfoReport( name, null, message ) );
+
+        if ( Json == false )
+            _console.MarkupLineInterpolated( $"[red]err[/]: {name} - {message}" );
+    }
+
+
+    /// <summary />
+    private void Print( string name, XmlInfo info )
+    {
+        _console.MarkupLineInterpolated( $"[bold]{name}[/]" );
 
         Field( "size", $"{info.Size:N0} bytes, {info.Lines:N0} line(s)" );
 
@@ -108,21 +165,21 @@ public class InfoCommand
         Field( "indentation", info.Indentation );
         Field( "content", $"{info.Elements:N0} element(s), {info.Attributes:N0} attribute(s), depth {info.Depth}" );
 
-        AnsiConsole.WriteLine();
+        _console.WriteLine();
     }
 
 
     /// <summary />
-    private static void Field( string label, string value )
+    private void Field( string label, string value )
     {
-        AnsiConsole.MarkupLineInterpolated( $"  [grey]{label,-13}[/] {value}" );
+        _console.MarkupLineInterpolated( $"  [grey]{label,-13}[/] {value}" );
     }
 
 
     /// <summary>
     /// Writes one value per line, aligned under the first; "none" when empty.
     /// </summary>
-    private static void Fields( string label, IEnumerable<string> values )
+    private void Fields( string label, IEnumerable<string> values )
     {
         bool first = true;
 

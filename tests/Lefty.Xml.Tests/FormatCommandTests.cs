@@ -248,6 +248,139 @@ public sealed class FormatCommandTests : IDisposable
 
 
     /// <summary />
+    [Fact]
+    public async Task Diff_shows_changes_in_check_mode()
+    {
+        string file = _dir.Write( "a.xml", Unformatted );
+        var console = new CapturedConsole();
+
+        int exit = await Run( [ file ], true, console, diff: true );
+
+        Assert.Equal( 1, exit );
+        Assert.Equal( Unformatted, File.ReadAllText( file ) );
+
+        string[] lines = console.Lines;
+        int header = Array.FindIndex( lines, line => line.StartsWith( "--- a/" ) );
+
+        Assert.True( header >= 0, console.Text );
+        Assert.EndsWith( "/a.xml", lines[ header ] );
+        Assert.StartsWith( "+++ b/", lines[ header + 1 ] );
+
+        string[] expected =
+        [
+            "@@ -1 +1,3 @@",
+            "-<a><b /></a>",
+            "\\ No newline at end of file",
+            "+<a>",
+            "+  <b />",
+            "+</a>",
+        ];
+
+        Assert.Equal( expected, lines[ ( header + 2 )..( header + 8 ) ] );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task Diff_shows_changes_when_formatting()
+    {
+        string file = _dir.Write( "a.xml", Unformatted );
+        var console = new CapturedConsole();
+
+        int exit = await Run( [ file ], false, console, diff: true );
+
+        Assert.Equal( 0, exit );
+        Assert.Equal( Formatted, File.ReadAllText( file ) );
+        Assert.Contains( "+  <b />", console.Lines );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task Diff_is_only_shown_when_asked()
+    {
+        string file = _dir.Write( "a.xml", Unformatted );
+        var console = new CapturedConsole();
+
+        await Run( [ file ], true, console );
+
+        Assert.DoesNotContain( console.Lines, line => line.StartsWith( "@@" ) );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task Diff_describes_a_change_of_line_endings_only()
+    {
+        string file = _dir.Write( "a.xml", Formatted.ReplaceLineEndings( "\r\n" ) );
+        var console = new CapturedConsole();
+
+        await Run( [ file ], true, console, diff: true );
+
+        Assert.Contains( "only line endings change", console.Text );
+        Assert.DoesNotContain( console.Lines, line => line.StartsWith( "@@" ) );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task Diff_describes_a_change_of_encoding_only()
+    {
+        _dir.Write( ".editorconfig", EditorConfig + "charset = utf-8-bom\n" );
+        string file = _dir.Write( "a.xml", Formatted );
+        var console = new CapturedConsole();
+
+        await Run( [ file ], true, console, diff: true );
+
+        Assert.Contains( "only the encoding or byte order mark changes", console.Text );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task GitHub_output_annotates_unformatted_file()
+    {
+        string file = _dir.Write( "a.xml", Unformatted );
+        var console = new CapturedConsole();
+
+        await Run( [ file ], true, console, output: "github" );
+
+        string annotation = Assert.Single( console.Lines, line => line.StartsWith( "::error " ) );
+
+        Assert.Matches( @"^::error file=[^,]*a\.xml,title=lxml format::File is not formatted", annotation );
+        Assert.Contains( console.Lines, line => line.StartsWith( "chg: " ) );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task GitHub_output_annotates_malformed_file_with_position()
+    {
+        string file = _dir.Write( "bad.xml", "<a>\n<b></a>" );
+        var console = new CapturedConsole();
+
+        await Run( [ file ], false, console, output: "github" );
+
+        string annotation = Assert.Single( console.Lines, line => line.StartsWith( "::error " ) );
+
+        Assert.Matches( @"^::error file=[^,]*bad\.xml,line=2,col=\d+,title=lxml format::Not well formed: ", annotation );
+    }
+
+
+    /// <summary />
+    [Fact]
+    public async Task Text_output_has_no_annotations()
+    {
+        string file = _dir.Write( "a.xml", Unformatted );
+        var console = new CapturedConsole();
+
+        await Run( [ file, Path.Combine( _dir.Root, "missing.xml" ) ], true, console );
+
+        Assert.DoesNotContain( console.Lines, line => line.StartsWith( "::" ) );
+    }
+
+
+    /// <summary />
     private static Task<int> Run( params string[] patterns )
     {
         return Run( patterns, false );
@@ -262,12 +395,14 @@ public sealed class FormatCommandTests : IDisposable
 
 
     /// <summary />
-    private static Task<int> Run( string[] patterns, bool check )
+    private static Task<int> Run( string[] patterns, bool check, CapturedConsole? console = null, bool diff = false, string output = "text" )
     {
-        var command = new FormatCommand()
+        var command = new FormatCommand( ( console ?? new CapturedConsole() ).Console )
         {
             Patterns = patterns,
             Check = check,
+            Diff = diff,
+            Output = output,
         };
 
         return command.OnExecuteAsync();
